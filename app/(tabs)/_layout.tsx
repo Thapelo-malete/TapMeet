@@ -1,24 +1,31 @@
-import { Tabs } from 'expo-router';
-import { House, User, QrCode, Camera, List } from 'lucide-react-native';
+import { Redirect, Tabs } from 'expo-router';
+import { House, User, Camera, Map, Sparkles } from 'lucide-react-native';
+import { useAuth } from '@/context/AuthContext';
 
 export default function TabLayout() {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <Redirect href="/login" />;
+  }
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#3B82F6',
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: '#C7A074',
+        tabBarInactiveTintColor: '#A8A29E',
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#F3F4F6',
+          backgroundColor: '#F8F7F5',
+          borderTopColor: '#ECE9E4',
           borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
+          height: 68,
+          paddingBottom: 10,
           paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '500',
+          fontWeight: '600',
         },
       }}
     >
@@ -39,8 +46,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="mycode"
         options={{
-          title: 'My Code',
-          tabBarIcon: ({ color, size }) => <QrCode size={size} color={color} />,
+          title: 'My Scan',
+          tabBarIcon: ({ color, size }) => <Sparkles size={size} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -48,13 +55,14 @@ export default function TabLayout() {
         options={{
           title: 'Scan',
           tabBarIcon: ({ color, size }) => <Camera size={size} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen
         name="recent"
         options={{
-          title: 'Recent',
-          tabBarIcon: ({ color, size }) => <List size={size} color={color} />,
+          title: 'Connections',
+          tabBarIcon: ({ color, size }) => <Map size={size} color={color} />,
         }}
       />
     </Tabs>

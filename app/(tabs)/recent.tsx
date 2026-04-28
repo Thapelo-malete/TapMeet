@@ -1,10 +1,12 @@
-import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import ConnectionRow from '@/components/ConnectionRow';
-import { recentConnections } from '@/constants/mockData';
+import { ChevronRight } from 'lucide-react-native';
+import Avatar from '@/components/Avatar';
+import { useConnections } from '@/hooks/useConnections';
 
 export default function RecentScreen() {
   const router = useRouter();
+  const { connections: recentConnections } = useConnections();
 
   return (
     <ScrollView
@@ -13,17 +15,33 @@ export default function RecentScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
-        <Text style={styles.title}>Recent Connections</Text>
-        <Text style={styles.subtitle}>{recentConnections.length} people</Text>
+        <Text style={styles.title}>Recent connections</Text>
+        <Text style={styles.subtitle}>People you met recently</Text>
       </View>
 
-      <View style={[styles.card, styles.cardShadow]}>
+      <View style={styles.listWrap}>
         {recentConnections.map((item) => (
-          <ConnectionRow
+          <TouchableOpacity
             key={item.id}
-            item={item}
+            style={[styles.connectionCard, styles.cardShadow]}
             onPress={() => router.push('/person-profile')}
-          />
+            activeOpacity={0.85}
+          >
+            <Avatar initials={item.initials} size={52} />
+            <View style={styles.connectionBody}>
+              <Text style={styles.connectionName}>{item.name}</Text>
+              <Text style={styles.connectionRole}>
+                {item.role} at {item.company}
+              </Text>
+              <View style={styles.connectionFooter}>
+                <View style={styles.pill}>
+                  <Text style={styles.pillText}>{item.category}</Text>
+                </View>
+                <Text style={styles.connectionTime}>{item.timeAgo}</Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color="#A8A29E" />
+          </TouchableOpacity>
         ))}
       </View>
     </ScrollView>
@@ -33,31 +51,28 @@ export default function RecentScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F5F5F4',
   },
   content: {
-    paddingBottom: 32,
+    paddingBottom: 28,
   },
   header: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    paddingBottom: 14,
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
+    color: '#292524',
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
+    color: '#78716C',
+    marginTop: 3,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
+  listWrap: {
+    paddingHorizontal: 18,
   },
   cardShadow: {
     ...Platform.select({
@@ -69,5 +84,49 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 2 },
     }),
+  },
+  connectionCard: {
+    backgroundColor: '#FAFAF9',
+    borderRadius: 20,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  connectionBody: {
+    flex: 1,
+    gap: 3,
+  },
+  connectionName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#292524',
+  },
+  connectionRole: {
+    fontSize: 13,
+    color: '#78716C',
+    marginBottom: 4,
+  },
+  connectionFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pill: {
+    backgroundColor: '#D3AD81',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  pillText: {
+    color: '#292524',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  connectionTime: {
+    fontSize: 12,
+    color: '#78716C',
+    fontWeight: '500',
   },
 });

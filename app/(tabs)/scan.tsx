@@ -3,10 +3,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   Platform,
+  Alert,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { X, Radio } from 'lucide-react-native';
 
 type Tab = 'Scan Code' | 'My Code';
 
@@ -21,61 +23,69 @@ export default function ScanScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Scan Connection</Text>
-      </View>
-
-      {/* Camera mock */}
-      <View style={styles.cameraContainer}>
-        <View style={styles.cameraMock}>
-          {/* Reticle */}
-          <View style={styles.reticle}>
-            <View style={[styles.corner, styles.cornerTL]} />
-            <View style={[styles.corner, styles.cornerTR]} />
-            <View style={[styles.corner, styles.cornerBL]} />
-            <View style={[styles.corner, styles.cornerBR]} />
-            <View style={styles.reticleLabel}>
-              <Text style={styles.reticleLabelText}>
-                Position QR code within frame
-              </Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Bottom toggle */}
-      <View style={styles.toggleContainer}>
-        {(['Scan Code', 'My Code'] as Tab[]).map((t) => (
-          <TouchableOpacity
-            key={t}
-            style={[
-              styles.toggleItem,
-              activeTab === t && styles.toggleItemActive,
-            ]}
-            onPress={() => setActiveTab(t)}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.toggleText,
-                activeTab === t && styles.toggleTextActive,
-              ]}
-            >
-              {t}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Tap to Connect */}
-      <TouchableOpacity
-        style={styles.connectButton}
-        onPress={handleConnect}
-        activeOpacity={0.85}
+      <LinearGradient
+        colors={['#101418', '#1A1411', '#29221B']}
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={styles.cameraArea}
       >
-        <Text style={styles.connectButtonText}>Tap to Connect</Text>
-      </TouchableOpacity>
-      <Text style={styles.helperText}>Hold near another phone or tag</Text>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.headerBtn} activeOpacity={0.85}>
+            <X size={24} color="#E7E5E4" />
+          </TouchableOpacity>
+          <Text style={styles.title}>Scan Connection</Text>
+          <TouchableOpacity style={styles.headerBtn} activeOpacity={0.85} />
+        </View>
+
+        <View style={styles.reticle}>
+          <View style={[styles.corner, styles.cornerTL]} />
+          <View style={[styles.corner, styles.cornerTR]} />
+          <View style={[styles.corner, styles.cornerBL]} />
+          <View style={[styles.corner, styles.cornerBR]} />
+        </View>
+        <Text style={styles.reticleLabelText}>Position QR code within frame</Text>
+      </LinearGradient>
+
+      <View style={styles.bottomSheet}>
+        <View style={styles.sheetGrabber} />
+
+        <View style={styles.toggleContainer}>
+          {(['Scan Code', 'My Code'] as Tab[]).map((t) => (
+            <TouchableOpacity
+              key={t}
+              style={[
+                styles.toggleItem,
+                activeTab === t && styles.toggleItemActive,
+              ]}
+              onPress={() => setActiveTab(t)}
+              activeOpacity={0.85}
+            >
+              <Text
+                style={[
+                  styles.toggleText,
+                  activeTab === t && styles.toggleTextActive,
+                ]}
+              >
+                {t}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={styles.connectButton}
+          onPress={handleConnect}
+          activeOpacity={0.85}
+        >
+          <View style={styles.connectIcon}>
+            <Radio size={20} color="#292524" />
+          </View>
+          <View>
+            <Text style={styles.connectButtonText}>Tap to Connect</Text>
+            <Text style={styles.helperText}>Hold near another phone or tag</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -83,134 +93,151 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#111827',
+  },
+  cameraArea: {
+    flex: 1,
+    paddingTop: Platform.OS === 'ios' ? 58 : 34,
     alignItems: 'center',
   },
   header: {
     width: '100%',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  headerBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(250,250,249,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(24,24,27,0.25)',
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
-  },
-  cameraContainer: {
-    width: '100%',
-    paddingHorizontal: 24,
-    marginBottom: 24,
-  },
-  cameraMock: {
-    width: '100%',
-    aspectRatio: 4 / 3,
-    backgroundColor: '#D1D5DB',
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
+    color: '#F5F5F4',
   },
   reticle: {
-    width: 200,
-    height: 200,
+    width: 300,
+    height: 300,
     position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: 160,
   },
   corner: {
     position: 'absolute',
-    width: 24,
-    height: 24,
-    borderColor: '#FFFFFF',
-    borderWidth: 3,
+    width: 44,
+    height: 44,
+    borderColor: '#D6B08A',
+    borderWidth: 4,
   },
   cornerTL: {
     top: 0,
     left: 0,
     borderRightWidth: 0,
     borderBottomWidth: 0,
-    borderTopLeftRadius: 4,
+    borderTopLeftRadius: 16,
   },
   cornerTR: {
     top: 0,
     right: 0,
     borderLeftWidth: 0,
     borderBottomWidth: 0,
-    borderTopRightRadius: 4,
+    borderTopRightRadius: 16,
   },
   cornerBL: {
     bottom: 0,
     left: 0,
     borderRightWidth: 0,
     borderTopWidth: 0,
-    borderBottomLeftRadius: 4,
+    borderBottomLeftRadius: 16,
   },
   cornerBR: {
     bottom: 0,
     right: 0,
     borderLeftWidth: 0,
     borderTopWidth: 0,
-    borderBottomRightRadius: 4,
-  },
-  reticleLabel: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
+    borderBottomRightRadius: 16,
   },
   reticleLabelText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    color: '#F5F5F4',
+    fontSize: 16,
     fontWeight: '500',
+    marginTop: 28,
+  },
+  bottomSheet: {
+    backgroundColor: '#F5F5F4',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 26,
+    marginTop: -12,
+  },
+  sheetGrabber: {
+    width: 54,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#E7E5E4',
+    alignSelf: 'center',
+    marginBottom: 16,
   },
   toggleContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 24,
-    gap: 4,
+    backgroundColor: '#D2A779',
+    borderRadius: 24,
+    padding: 5,
+    marginBottom: 20,
+    gap: 6,
   },
   toggleItem: {
-    paddingHorizontal: 24,
+    flex: 1,
     paddingVertical: 10,
-    borderRadius: 9,
+    borderRadius: 20,
+    alignItems: 'center',
   },
   toggleItemActive: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#F5F5F4',
   },
   toggleText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: '700',
+    color: '#78716C',
   },
   toggleTextActive: {
-    color: '#FFFFFF',
+    color: '#292524',
   },
   connectButton: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 14,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
-    marginBottom: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#3B82F6',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
-        shadowRadius: 8,
-      },
-      android: { elevation: 4 },
-    }),
+    backgroundColor: '#F8F8F8',
+    borderWidth: 1,
+    borderColor: '#E7E5E4',
+    borderRadius: 20,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  connectIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#D6AF84',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   connectButtonText: {
-    color: '#FFFFFF',
+    color: '#292524',
     fontSize: 17,
     fontWeight: '700',
   },
   helperText: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    fontSize: 14,
+    color: '#78716C',
+    fontWeight: '500',
+    marginTop: 2,
   },
 });

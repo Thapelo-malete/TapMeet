@@ -1,33 +1,39 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  Alert,
   StyleSheet,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { ChevronRight, Hash, ScanLine } from 'lucide-react-native';
 import Avatar from '@/components/Avatar';
-import ConnectionRow from '@/components/ConnectionRow';
-import { currentUser, recentConnections, weeklyMet } from '@/constants/mockData';
+import { currentUser, weeklyMet } from '@/constants/mockData';
+import { useConnections } from '@/hooks/useConnections';
 
 const FILTERS = ['Professional', 'Social', 'Creator'] as const;
 type Filter = (typeof FILTERS)[number];
 
 const filterCategoryMap: Record<Filter, string> = {
   Professional: 'Design',
-  Social: 'Events',
-  Creator: 'Content',
+  Social: 'Startup',
+  Creator: 'Fintech',
 };
 
 export default function HomeScreen() {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState<Filter>('Professional');
+  const { connections: recentConnections } = useConnections(5);
 
-  const connections = recentConnections.map((c, i) =>
-    i === 0 ? { ...c, category: filterCategoryMap[activeFilter] } : c
+  const connections = useMemo(
+    () =>
+      recentConnections.map((c, i) =>
+        i === 0 ? { ...c, category: filterCategoryMap[activeFilter] } : c
+      ),
+    [activeFilter]
   );
 
   return (
@@ -36,58 +42,62 @@ export default function HomeScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.greeting}>Good morning, {currentUser.name}</Text>
-        <Text style={styles.subtitle}>Ready to grow your network?</Text>
-      </View>
-
-      {/* Filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipsRow}
+      <LinearGradient
+        colors={['#C9A376', '#E7D4BD', '#F4F0EB']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.topSection}
       >
-        {FILTERS.map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.chip, activeFilter === f && styles.chipActive]}
-            onPress={() => setActiveFilter(f)}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.chipText,
-                activeFilter === f && styles.chipTextActive,
-              ]}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.greeting}>Good morning, {currentUser.name}</Text>
+            <Text style={styles.subtitle}>Ready to grow your network?</Text>
+          </View>
+          <Avatar initials="SA" size={52} />
+        </View>
+
+        <View style={styles.segmented}>
+          {FILTERS.map((f) => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.segmentItem, activeFilter === f && styles.segmentActive]}
+              onPress={() => setActiveFilter(f)}
+              activeOpacity={0.85}
             >
-              {f}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Stats row */}
-      <View style={styles.statsRow}>
-        <View style={[styles.statCard, styles.cardShadow]}>
-          <Text style={styles.statNumber}>{currentUser.connectionsCount}</Text>
-          <Text style={styles.statLabel}>Connections</Text>
+              <Text
+                style={[
+                  styles.segmentText,
+                  activeFilter === f && styles.segmentTextActive,
+                ]}
+              >
+                {f}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
-        <View style={[styles.statCard, styles.cardShadow]}>
-          <Text style={styles.statNumber}>{currentUser.eventsCount}</Text>
-          <Text style={styles.statLabel}>Events</Text>
-        </View>
-      </View>
 
-      {/* Met this week */}
-      <View style={[styles.card, styles.cardShadow]}>
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, styles.cardShadow]}>
+            <Text style={styles.statNumber}>{currentUser.connectionsCount}</Text>
+            <Text style={styles.statLabel}>Connections</Text>
+          </View>
+          <View style={[styles.statCard, styles.cardShadow]}>
+            <Text style={styles.statNumber}>{currentUser.eventsCount}</Text>
+            <Text style={styles.statLabel}>Events</Text>
+          </View>
+          <View style={[styles.statCard, styles.cardShadow]}>
+            <View style={styles.hashBadge}>
+              <Hash size={14} color="#1F2937" />
+            </View>
+            <Text style={styles.statLabel}>Tech</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      <View style={styles.sectionWrap}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Met this week</Text>
-          <TouchableOpacity
-            onPress={() =>
-              Alert.alert('All weekly connections – mock only')
-            }
-          >
+          <TouchableOpacity>
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>
@@ -98,26 +108,45 @@ export default function HomeScreen() {
         >
           {weeklyMet.map((p) => (
             <View key={p.id} style={styles.weeklyItem}>
-              <Avatar initials={p.initials} size={48} />
+              <Avatar initials={p.initials} size={60} />
               <Text style={styles.weeklyName}>{p.name}</Text>
             </View>
           ))}
         </ScrollView>
       </View>
 
-      {/* Recent connections */}
-      <View style={[styles.card, styles.cardShadow]}>
+      <View style={styles.sectionWrap}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent connections</Text>
         </View>
         {connections.map((item) => (
-          <ConnectionRow
+          <TouchableOpacity
             key={item.id}
-            item={item}
+            style={[styles.connectionCard, styles.cardShadow]}
             onPress={() => router.push('/person-profile')}
-          />
+            activeOpacity={0.85}
+          >
+            <Avatar initials={item.initials} size={52} />
+            <View style={styles.connectionBody}>
+              <Text style={styles.connectionName}>{item.name}</Text>
+              <Text style={styles.connectionRole}>
+                {item.role} at {item.company}
+              </Text>
+              <View style={styles.connectionFooter}>
+                <View style={styles.pill}>
+                  <Text style={styles.pillText}>{item.category}</Text>
+                </View>
+                <Text style={styles.connectionTime}>{item.timeAgo}</Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color="#9CA3AF" />
+          </TouchableOpacity>
         ))}
       </View>
+
+      <TouchableOpacity style={[styles.scanFab, styles.cardShadow]} activeOpacity={0.85}>
+        <ScanLine size={22} color="#1F2937" />
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -125,77 +154,92 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F5F5F4',
   },
   content: {
-    paddingBottom: 32,
+    paddingBottom: 100,
+  },
+  topSection: {
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   header: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 16,
+    paddingBottom: 18,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   greeting: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1F2937',
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  chipsRow: {
-    paddingHorizontal: 16,
-    gap: 8,
-    paddingBottom: 16,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-  },
-  chipActive: {
-    backgroundColor: '#3B82F6',
-  },
-  chipText: {
-    fontSize: 14,
+    color: '#A8A29E',
+    marginTop: 8,
     fontWeight: '500',
-    color: '#374151',
   },
-  chipTextActive: {
-    color: '#FFFFFF',
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    marginHorizontal: 20,
+    padding: 6,
+    borderRadius: 28,
+    gap: 6,
+  },
+  segmentItem: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 22,
+    alignItems: 'center',
+  },
+  segmentActive: {
+    backgroundColor: '#C7A074',
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#78716C',
+  },
+  segmentTextActive: {
+    color: '#292524',
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 12,
-    paddingHorizontal: 16,
-    marginBottom: 12,
+    gap: 10,
+    paddingHorizontal: 20,
+    marginTop: 18,
   },
   statCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 18,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1F2937',
   },
   statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
+    fontSize: 13,
+    color: '#78716C',
+    marginTop: 4,
   },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 12,
+  hashBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#D5B48D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   cardShadow: {
     ...Platform.select({
@@ -205,36 +249,95 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 4,
       },
-      android: { elevation: 2 },
+      android: { elevation: 3 },
     }),
+  },
+  sectionWrap: {
+    paddingHorizontal: 20,
+    marginTop: 22,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1F2937',
   },
   seeAll: {
     fontSize: 14,
-    color: '#3B82F6',
-    fontWeight: '500',
+    color: '#A58A66',
+    fontWeight: '600',
   },
   weeklyRow: {
-    gap: 16,
-    paddingRight: 8,
+    gap: 20,
+    paddingRight: 16,
   },
   weeklyItem: {
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   weeklyName: {
-    fontSize: 12,
-    color: '#374151',
+    fontSize: 13,
+    color: '#1F2937',
     fontWeight: '500',
+  },
+  connectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 12,
+  },
+  connectionBody: {
+    flex: 1,
+    gap: 3,
+  },
+  connectionName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  connectionRole: {
+    fontSize: 13,
+    color: '#78716C',
+    marginBottom: 4,
+  },
+  connectionFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  pill: {
+    backgroundColor: '#D3AD81',
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  pillText: {
+    color: '#292524',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  connectionTime: {
+    fontSize: 12,
+    color: '#78716C',
+    fontWeight: '500',
+  },
+  scanFab: {
+    position: 'absolute',
+    right: 22,
+    bottom: 24,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#D8BA93',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
