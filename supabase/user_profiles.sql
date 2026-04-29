@@ -24,6 +24,14 @@ create policy "user_profiles_select_own"
   for select
   using (auth.uid() = id);
 
+-- Allow authenticated users to view other profiles (needed for Connections / Scan).
+drop policy if exists "user_profiles_select_authenticated" on public.user_profiles;
+create policy "user_profiles_select_authenticated"
+  on public.user_profiles
+  for select
+  to authenticated
+  using (true);
+
 drop policy if exists "user_profiles_insert_own" on public.user_profiles;
 create policy "user_profiles_insert_own"
   on public.user_profiles

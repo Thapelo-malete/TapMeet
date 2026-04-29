@@ -2,11 +2,15 @@ import { View, Text, ScrollView, StyleSheet, Platform, TouchableOpacity } from '
 import { useRouter } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
 import Avatar from '@/components/Avatar';
-import { useConnections } from '@/hooks/useConnections';
+import { useAuth } from '@/context/AuthContext';
+import { useUserConnections } from '@/hooks/useUserConnections';
 
 export default function RecentScreen() {
   const router = useRouter();
-  const { connections: recentConnections, isLoading } = useConnections();
+  const { supabaseUser } = useAuth();
+  const { items: recentConnections, isLoading, timeAgoFromIso } = useUserConnections(
+    supabaseUser?.id
+  );
 
   return (
     <ScrollView
@@ -25,22 +29,42 @@ export default function RecentScreen() {
         ) : null}
         {recentConnections.map((item) => (
           <TouchableOpacity
-            key={item.id}
+            key={item.otherUserId + item.metAt}
             style={[styles.connectionCard, styles.cardShadow]}
-            onPress={() => router.push({ pathname: '/person-profile', params: { id: item.id } })}
+            onPress={() =>
+              router.push({
+                pathname: '/person-profile',
+                params: { userId: item.otherUserId, metAt: item.metAt, metLocation: item.metLocation ?? '' },
+              })
+            }
             activeOpacity={0.85}
           >
-            <Avatar initials={item.initials} size={52} />
+            <Avatar
+              initials={item.name
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((x) => x[0]?.toUpperCase() ?? '')
+                .join('')}
+              size={52}
+              uri={
+                item.avatarUrl
+                  ? `${item.avatarUrl}?v=${encodeURIComponent(item.metAt ?? '')}`
+                  : null
+              }
+            />
             <View style={styles.connectionBody}>
               <Text style={styles.connectionName}>{item.name}</Text>
-              <Text style={styles.connectionRole}>
-                {item.role} at {item.company}
-              </Text>
+              <Text style={styles.connectionRole}>{item.title}</Text>
+              {item.metLocation ? (
+                <Text style={styles.connectionMeta} numberOfLines={1}>
+                  Met in {item.metLocation}
+                </Text>
+              ) : null}
               <View style={styles.connectionFooter}>
                 <View style={styles.pill}>
                   <Text style={styles.pillText}>{item.category}</Text>
                 </View>
-                <Text style={styles.connectionTime}>{item.timeAgo}</Text>
+                <Text style={styles.connectionTime}>{timeAgoFromIso(item.metAt)}</Text>
               </View>
             </View>
             <ChevronRight size={18} color="#A8A29E" />
@@ -109,6 +133,12 @@ const styles = StyleSheet.create({
   connectionRole: {
     fontSize: 13,
     color: '#78716C',
+    marginBottom: 4,
+  },
+  connectionMeta: {
+    fontSize: 12,
+    color: '#78716C',
+    fontWeight: '500',
     marginBottom: 4,
   },
   connectionFooter: {

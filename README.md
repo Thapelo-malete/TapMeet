@@ -21,6 +21,9 @@ import { supabase } from '@/lib/supabase';
 1. Open Supabase Dashboard -> SQL Editor.
 2. Run `supabase/init.sql`.
 3. Run `supabase/user_profiles.sql` (for editable user profiles).
-4. Run `supabase/storage_avatars.sql` and create a Storage bucket named `avatars` (set it to public for easiest image display).
+4. Run `supabase/user_connections.sql` (for scan-to-connect connections).
+5. Run `supabase/storage_avatars.sql` and create a Storage bucket named `avatars` (set it to public for easiest image display).
+6. If you created users before running `user_profiles.sql`, run `supabase/backfill_user_profiles.sql` once.
 5. In project root, copy `.env.example` to `.env` and paste your real anon key.
+   - Optional: set `EXPO_PUBLIC_APP_URL` (used for “Share TapMeet link” + QR codes). Default is `https://tapmeet.app`.
 6. Restart Expo (`npm run dev`).

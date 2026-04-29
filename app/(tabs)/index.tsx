@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ChevronRight, Hash, ScanLine, Search } from 'lucide-react-native';
+import { ChevronRight, Hash, Search } from 'lucide-react-native';
 import Avatar from '@/components/Avatar';
 import { useAuth } from '@/context/AuthContext';
 import { useDashboard } from '@/hooks/useDashboard';
@@ -22,7 +22,9 @@ export default function HomeScreen() {
   const { user, supabaseUser } = useAuth();
   const [searchText, setSearchText] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('All');
-  const { recentConnections, connectionsCount, isRefreshing, refresh } = useDashboard();
+  const { recentConnections, connectionsCount, isRefreshing, refresh } = useDashboard(
+    supabaseUser?.id
+  );
   const { profile } = useMyProfile(supabaseUser?.id);
 
   const timeGreeting = useMemo(() => {
@@ -41,6 +43,20 @@ export default function HomeScreen() {
     return ['All', ...Array.from(set).slice(0, 8)];
   }, [recentConnections]);
 
+  const topCategory = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of recentConnections) {
+      const key = (c.category || '').trim();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    let best: { key: string; n: number } | null = null;
+    for (const [key, n] of counts.entries()) {
+      if (!best || n > best.n) best = { key, n };
+    }
+    return best?.key ?? '—';
+  }, [recentConnections]);
+
   const connections = useMemo(() => {
     const q = searchText.trim().toLowerCase();
     return recentConnections.filter((c) => {
@@ -48,8 +64,7 @@ export default function HomeScreen() {
       const matchesSearch =
         !q ||
         c.name.toLowerCase().includes(q) ||
-        c.role.toLowerCase().includes(q) ||
-        c.company.toLowerCase().includes(q);
+        c.title.toLowerCase().includes(q);
       return matchesCategory && matchesSearch;
     });
   }, [activeCategory, recentConnections, searchText]);
@@ -136,7 +151,7 @@ export default function HomeScreen() {
             <View style={styles.hashBadge}>
               <Hash size={14} color="#1F2937" />
             </View>
-            <Text style={styles.statLabel}>Tech</Text>
+            <Text style={styles.statLabel}>{topCategory}</Text>
           </View>
         </View>
       </LinearGradient>
@@ -154,8 +169,20 @@ export default function HomeScreen() {
           contentContainerStyle={styles.weeklyRow}
         >
           {recentConnections.slice(0, 5).map((p) => (
-            <View key={p.id} style={styles.weeklyItem}>
-              <Avatar initials={p.initials} size={60} />
+            <View key={p.otherUserId} style={styles.weeklyItem}>
+              <Avatar
+                initials={p.name
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((x) => x[0]?.toUpperCase() ?? '')
+                  .join('')}
+                size={60}
+                uri={
+                  p.avatarUrl
+                    ? `${p.avatarUrl}?v=${encodeURIComponent(p.metAt ?? '')}`
+                    : null
+                }
+              />
               <Text style={styles.weeklyName}>{p.name.split(' ')[0]}</Text>
             </View>
           ))}
@@ -168,22 +195,39 @@ export default function HomeScreen() {
         </View>
         {connections.map((item) => (
           <TouchableOpacity
-            key={item.id}
+            key={item.otherUserId}
             style={[styles.connectionCard, styles.cardShadow]}
-            onPress={() => router.push({ pathname: '/person-profile', params: { id: item.id } })}
+            onPress={() =>
+              router.push({
+                pathname: '/person-profile',
+                params: { userId: item.otherUserId, metAt: item.metAt, metLocation: item.metLocation ?? '' },
+              })
+            }
             activeOpacity={0.85}
           >
-            <Avatar initials={item.initials} size={52} />
+            <Avatar
+              initials={item.name
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((x) => x[0]?.toUpperCase() ?? '')
+                .join('')}
+              size={52}
+              uri={
+                item.avatarUrl
+                  ? `${item.avatarUrl}?v=${encodeURIComponent(item.metAt ?? '')}`
+                  : null
+              }
+            />
             <View style={styles.connectionBody}>
               <Text style={styles.connectionName}>{item.name}</Text>
-              <Text style={styles.connectionRole}>
-                {item.role} at {item.company}
-              </Text>
+              <Text style={styles.connectionRole}>{item.title}</Text>
               <View style={styles.connectionFooter}>
                 <View style={styles.pill}>
                   <Text style={styles.pillText}>{item.category}</Text>
                 </View>
-                <Text style={styles.connectionTime}>{item.timeAgo}</Text>
+                <Text style={styles.connectionTime}>
+                  {new Date(item.metAt).toLocaleDateString()}
+                </Text>
               </View>
             </View>
             <ChevronRight size={18} color="#9CA3AF" />
@@ -191,9 +235,6 @@ export default function HomeScreen() {
         ))}
       </View>
 
-      <TouchableOpacity style={[styles.scanFab, styles.cardShadow]} activeOpacity={0.85}>
-        <ScanLine size={22} color="#1F2937" />
-      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -394,16 +435,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#78716C',
     fontWeight: '500',
-  },
-  scanFab: {
-    position: 'absolute',
-    right: 22,
-    bottom: 24,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: '#D8BA93',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

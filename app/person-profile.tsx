@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  Linking,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -12,10 +13,9 @@ import {
   Ellipsis,
   Linkedin,
   Twitter,
-  Mail,
+  Globe,
   MapPin,
   CalendarDays,
-  PenLine,
 } from 'lucide-react-native';
 import Avatar from '@/components/Avatar';
 import { useEffect, useMemo, useState } from 'react';
@@ -23,54 +23,55 @@ import { supabase } from '@/lib/supabase';
 
 export default function PersonProfileScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string }>();
-  const connectionId = params.id;
+  const params = useLocalSearchParams<{ userId?: string; metAt?: string; metLocation?: string }>();
+  const otherUserId = params.userId;
+  const metAt = params.metAt;
+  const metLocation = params.metLocation;
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/recent');
+    }
+  };
 
   const [loading, setLoading] = useState(true);
-  const [connection, setConnection] = useState<{
+  const [profile, setProfile] = useState<{
     id: string;
-    name: string;
-    role: string;
-    company: string;
-    category: string;
-    time_ago: string;
-    initials: string;
-    created_at: string;
+    full_name: string | null;
+    title: string | null;
+    bio: string | null;
+    avatar_url: string | null;
+    interests: string[] | null;
+    linkedin_url: string | null;
+    x_url: string | null;
+    instagram_url: string | null;
+    website_url: string | null;
   } | null>(null);
 
   const initials = useMemo(() => {
-    const name = connection?.name?.trim() || 'TapMeet';
+    const name = profile?.full_name?.trim() || 'TapMeet';
     const parts = name.split(/\s+/).slice(0, 2);
     return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || 'TM';
-  }, [connection?.name]);
+  }, [profile?.full_name]);
 
   useEffect(() => {
     let mounted = true;
     async function load() {
-      if (!connectionId) {
+      if (!otherUserId) {
         setLoading(false);
         return;
       }
       const { data } = await supabase
-        .from('connections')
-        .select('id,name,role,company,category,time_ago,initials,created_at')
-        .eq('id', connectionId)
+        .from('user_profiles')
+        .select(
+          'id,full_name,title,bio,avatar_url,interests,linkedin_url,x_url,instagram_url,website_url'
+        )
+        .eq('id', otherUserId)
         .maybeSingle();
       if (!mounted) return;
-      setConnection(
-        data
-          ? {
-              id: String(data.id),
-              name: data.name ?? 'Unknown Person',
-              role: data.role ?? 'Professional',
-              company: data.company ?? 'TapMeet',
-              category: data.category ?? 'General',
-              time_ago: data.time_ago ?? 'Just now',
-              initials: data.initials ?? initials,
-              created_at: data.created_at ?? new Date().toISOString(),
-            }
-          : null
-      );
+      setProfile(data ? (data as any) : null);
       setLoading(false);
     }
     load();
@@ -78,7 +79,7 @@ export default function PersonProfileScreen() {
       mounted = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectionId]);
+  }, [otherUserId]);
 
   return (
     <ScrollView
@@ -89,7 +90,7 @@ export default function PersonProfileScreen() {
       <View style={styles.topActions}>
         <TouchableOpacity
           style={[styles.iconCircle, styles.cardShadow]}
-          onPress={() => router.back()}
+          onPress={handleBack}
           activeOpacity={0.8}
         >
           <ArrowLeft size={18} color="#292524" />
@@ -101,32 +102,68 @@ export default function PersonProfileScreen() {
 
       <View style={styles.profileHeader}>
         <View style={styles.avatarRing}>
-          <Avatar initials={connection?.initials ?? initials} size={86} />
+          <Avatar
+            initials={initials}
+            size={86}
+            uri={profile?.avatar_url ?? null}
+          />
         </View>
-        <Text style={styles.profileName}>{connection?.name ?? 'Connection'}</Text>
-        <Text style={styles.profileTitle}>
-          {connection ? `${connection.role} @ ${connection.company}` : ' '}
-        </Text>
+        <Text style={styles.profileName}>{profile?.full_name ?? 'Connection'}</Text>
+        <Text style={styles.profileTitle}>{profile?.title ?? 'TapMeet member'}</Text>
       </View>
 
       <View style={styles.socialRow}>
-        <TouchableOpacity style={[styles.socialBtn, styles.cardShadow]} activeOpacity={0.8}>
-          <Linkedin size={17} color="#A58A66" />
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.socialBtn, styles.cardShadow]} activeOpacity={0.8}>
-          <Twitter size={17} color="#A58A66" />
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.socialBtn, styles.cardShadow]} activeOpacity={0.8}>
-          <Mail size={17} color="#A58A66" />
-        </TouchableOpacity>
+        {profile?.linkedin_url ? (
+          <TouchableOpacity
+            style={[styles.socialBtn, styles.cardShadow]}
+            activeOpacity={0.8}
+            onPress={() => Linking.openURL(profile.linkedin_url!)}
+          >
+            <Linkedin size={17} color="#A58A66" />
+          </TouchableOpacity>
+        ) : null}
+        {profile?.x_url ? (
+          <TouchableOpacity
+            style={[styles.socialBtn, styles.cardShadow]}
+            activeOpacity={0.8}
+            onPress={() => Linking.openURL(profile.x_url!)}
+          >
+            <Twitter size={17} color="#A58A66" />
+          </TouchableOpacity>
+        ) : null}
+        {profile?.website_url ? (
+          <TouchableOpacity
+            style={[styles.socialBtn, styles.cardShadow]}
+            activeOpacity={0.8}
+            onPress={() => Linking.openURL(profile.website_url!)}
+          >
+            <Globe size={17} color="#A58A66" />
+          </TouchableOpacity>
+        ) : null}
       </View>
+
+      {profile?.bio ? (
+        <View style={[styles.card, styles.cardShadow]}>
+          <Text style={styles.sectionTitleSmall}>About</Text>
+          <Text style={styles.aboutText}>{profile.bio}</Text>
+        </View>
+      ) : null}
+
+      {profile?.interests?.length ? (
+        <View style={[styles.card, styles.cardShadow]}>
+          <Text style={styles.sectionTitleSmall}>Interests</Text>
+          <View style={styles.tagsRow}>
+            {profile.interests.map((t) => (
+              <View key={t} style={styles.hashTag}>
+                <Text style={styles.hashTagText}>{t}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Memory</Text>
-        <TouchableOpacity style={styles.editPill} activeOpacity={0.8}>
-          <PenLine size={13} color="#E7E5E4" />
-          <Text style={styles.editText}>Edit</Text>
-        </TouchableOpacity>
       </View>
 
       <View style={[styles.card, styles.cardShadow]}>
@@ -135,7 +172,7 @@ export default function PersonProfileScreen() {
           <Text style={styles.memoryLabel}>Met at</Text>
         </View>
         <Text style={styles.memoryValue}>
-          {connection ? connection.category : loading ? 'Loading…' : '—'}
+          {metLocation || (loading ? 'Loading…' : '—')}
         </Text>
 
         <View style={[styles.sectionHeader, styles.dateHeader]}>
@@ -143,25 +180,17 @@ export default function PersonProfileScreen() {
           <Text style={styles.memoryLabel}>Date</Text>
         </View>
         <Text style={styles.memoryValue}>
-          {connection ? new Date(connection.created_at).toLocaleDateString() : '—'}
+          {metAt ? new Date(metAt).toLocaleString() : '—'}
         </Text>
 
         <View style={styles.noteContainer}>
           <Text style={styles.noteText}>
-            {connection
-              ? `Connected ${connection.time_ago}.`
-              : loading
-                ? 'Loading…'
-                : 'No details available.'}
+            {metAt ? `Connected on ${new Date(metAt).toLocaleString()}.` : ' '}
           </Text>
         </View>
 
         <View style={styles.tagsRow}>
-          {connection ? (
-            <View style={styles.hashTag}>
-              <Text style={styles.hashTagText}>{connection.category}</Text>
-            </View>
-          ) : null}
+          {/* Tags can be added when we store shared interests per connection */}
         </View>
       </View>
 
@@ -263,20 +292,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#292524',
   },
-  editPill: {
-    marginLeft: 'auto',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#292524',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+  sectionTitleSmall: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#292524',
+    marginBottom: 10,
   },
-  editText: {
-    color: '#FAFAF9',
-    fontSize: 13,
-    fontWeight: '600',
+  aboutText: {
+    fontSize: 14,
+    color: '#44403C',
+    fontWeight: '500',
+    lineHeight: 22,
   },
   memoryLabel: {
     fontSize: 14,

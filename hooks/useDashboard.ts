@@ -1,50 +1,31 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
-import type { ConnectionItem } from '@/hooks/useConnections';
+import type { UserConnectionItem } from '@/hooks/useUserConnections';
 
-type ConnectionRow = {
-  id: string;
-  name: string | null;
-  role: string | null;
-  company: string | null;
-  category: string | null;
-  time_ago: string | null;
-  initials: string | null;
-};
-
-function toInitials(name: string) {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? '').join('');
-}
-
-function mapRow(row: ConnectionRow): ConnectionItem {
-  const safeName = row.name?.trim() || 'Unknown Person';
-  return {
-    id: String(row.id),
-    name: safeName,
-    role: row.role?.trim() || 'Professional',
-    company: row.company?.trim() || 'TapMeet',
-    category: row.category?.trim() || 'General',
-    timeAgo: row.time_ago?.trim() || 'Just now',
-    initials: row.initials?.trim() || toInitials(safeName) || 'NA',
-  };
-}
-
-export function useDashboard() {
-  const [recentConnections, setRecentConnections] = useState<ConnectionItem[]>([]);
+export function useDashboard(userId?: string) {
+  const [recentConnections, setRecentConnections] = useState<UserConnectionItem[]>([]);
   const [connectionsCount, setConnectionsCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const load = useCallback(async () => {
+    if (!userId) {
+      setRecentConnections([]);
+      setConnectionsCount(0);
+      return;
+    }
     const [{ data: list, error: listError }, { count, error: countError }] = await Promise.all([
       supabase
-        .from('connections')
-        .select('id,name,role,company,category,time_ago,initials')
-        .order('created_at', { ascending: false })
+        .from('user_connections')
+        .select('other_user_id,met_at,met_location')
+        .eq('owner_id', userId)
+        .order('met_at', { ascending: false })
         .limit(8),
-      supabase.from('connections').select('*', { count: 'exact', head: true }),
+      supabase
+        .from('user_connections')
+        .select('*', { count: 'exact', head: true })
+        .eq('owner_id', userId),
     ]);
 
     if (listError || countError) {
@@ -53,9 +34,45 @@ export function useDashboard() {
       return;
     }
 
-    setRecentConnections((list ?? []).map((r) => mapRow(r as ConnectionRow)));
+    const rows = (list ?? []) as Array<{
+      other_user_id: string;
+      met_at: string;
+      met_location: string | null;
+    }>;
+
+    const otherIds = Array.from(new Set(rows.map((r) => String(r.other_user_id))));
+    const { data: profiles } = otherIds.length
+      ? await supabase
+          .from('user_profiles')
+          .select('id,full_name,title,avatar_url,interests,updated_at')
+          .in('id', otherIds)
+      : { data: [] as any[] };
+
+    const byId = new Map<string, any>();
+    for (const p of profiles ?? []) byId.set(String((p as any).id), p);
+
+    const mapped = rows.map((row) => {
+      const other = byId.get(String(row.other_user_id));
+      const name = (other?.full_name || 'TapMeet user').trim();
+      const title = (other?.title || 'TapMeet member').trim();
+      const category =
+        (Array.isArray(other?.interests) && other.interests.length ? other.interests[0] : null) ??
+        'General';
+
+      return {
+        otherUserId: String(row.other_user_id),
+        name,
+        title,
+        avatarUrl: other?.avatar_url ?? null,
+        category,
+        metAt: row.met_at,
+        metLocation: row.met_location ?? null,
+      } satisfies UserConnectionItem;
+    });
+
+    setRecentConnections(mapped);
     setConnectionsCount(count ?? 0);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     let mounted = true;

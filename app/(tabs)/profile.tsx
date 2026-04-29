@@ -20,7 +20,7 @@ import { useMyProfile } from '@/hooks/useMyProfile';
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, supabaseUser, logout } = useAuth();
-  const { connectionsCount } = useDashboard();
+  const { connectionsCount } = useDashboard(supabaseUser?.id);
   const { profile, isLoading: isProfileLoading, isRefreshing, refresh } = useMyProfile(
     supabaseUser?.id
   );

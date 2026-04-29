@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,18 +10,38 @@ import {
   ScrollView,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-
-type Tab = 'My Code' | 'Scan';
+import QRCode from 'react-native-qrcode-svg';
+import { useAuth } from '@/context/AuthContext';
+import { makeMyQrPayload } from '@/lib/scanPayload';
+import { useRouter } from 'expo-router';
+import { ScanLine } from 'lucide-react-native';
+import Avatar from '@/components/Avatar';
+import { useMyProfile } from '@/hooks/useMyProfile';
+import { getPublicProfileUrl } from '@/lib/appLinks';
 
 export default function MyCodeScreen() {
-  const [activeTab, setActiveTab] = useState<Tab>('My Code');
+  const { supabaseUser } = useAuth();
+  const myId = supabaseUser?.id ?? '';
+  const router = useRouter();
+  const qrValue = useMemo(() => (myId ? makeMyQrPayload(myId) : ''), [myId]);
+  const { profile } = useMyProfile(supabaseUser?.id);
+  const publicLink = useMemo(() => (myId ? getPublicProfileUrl(myId) : ''), [myId]);
 
-  const handleCopyLink = () => Alert.alert('Link copied to clipboard');
+  const displayName = (profile?.full_name ?? supabaseUser?.email?.split('@')[0] ?? 'TapMeet').trim();
+  const displayTitle = (profile?.title ?? 'TapMeet member').trim();
+  const initials = displayName
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((x) => x[0]?.toUpperCase() ?? '')
+    .join('');
+
+  const handleCopyLink = () =>
+    Alert.alert('Copy link', publicLink ? publicLink : 'Sign in to generate your link.');
 
   const handleShare = async () => {
     try {
       await Share.share({
-        message: 'Check out my TapMeet profile: Julian Rhodes',
+        message: publicLink ? `${displayName} on TapMeet: ${publicLink}` : 'TapMeet profile',
       });
     } catch {
       // dismissed
@@ -42,43 +62,39 @@ export default function MyCodeScreen() {
       >
         <View style={styles.headerRow}>
           <View style={styles.dot} />
-          <View style={styles.toggleContainer}>
-            {(['My Code', 'Scan'] as Tab[]).map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[
-                  styles.toggleItem,
-                  activeTab === t && styles.toggleItemActive,
-                ]}
-                onPress={() => setActiveTab(t)}
-                activeOpacity={0.85}
-              >
-                <Text
-                  style={[
-                    styles.toggleText,
-                    activeTab === t && styles.toggleTextActive,
-                  ]}
-                >
-                  {t}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity
+            style={styles.scanPill}
+            onPress={() => router.replace('/(tabs)/scan')}
+            activeOpacity={0.85}
+          >
+            <ScanLine size={16} color="#292524" />
+            <Text style={styles.scanPillText}>Scan</Text>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
       <View style={styles.mainCard}>
         <View style={[styles.avatarWrap, styles.cardShadow]}>
-          <View style={styles.avatarInner}>
-            <Text style={styles.avatarInitials}>JR</Text>
-          </View>
+          <Avatar
+            initials={initials || 'TM'}
+            size={88}
+            uri={
+              profile?.avatar_url
+                ? `${profile.avatar_url}?v=${encodeURIComponent(profile.updated_at ?? '')}`
+                : null
+            }
+          />
         </View>
-        <Text style={styles.userName}>Julian Rhodes</Text>
-        <Text style={styles.userRole}>Founder @ TapMeet</Text>
+        <Text style={styles.userName}>{displayName}</Text>
+        <Text style={styles.userRole}>{displayTitle}</Text>
 
         <View style={styles.qrShell}>
           <View style={styles.qrInset}>
-            <View style={styles.qrCenter} />
+            {qrValue ? (
+              <QRCode value={qrValue} size={240} backgroundColor="#FFFFFF" color="#111827" />
+            ) : (
+              <View style={styles.qrCenter} />
+            )}
           </View>
         </View>
         <View style={styles.nfcRings}>
@@ -135,29 +151,21 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: '#F5F5F4',
   },
-  toggleContainer: {
+  scanPill: {
+    marginLeft: 'auto',
     flexDirection: 'row',
-    backgroundColor: '#F5F5F4',
-    borderRadius: 24,
-    padding: 5,
-    gap: 6,
-    flex: 1,
-  },
-  toggleItem: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 20,
     alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#F5F5F4',
+    borderWidth: 1,
+    borderColor: 'rgba(231,229,228,0.9)',
   },
-  toggleItemActive: {
-    backgroundColor: '#C3A077',
-  },
-  toggleText: {
+  scanPillText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#78716C',
-  },
-  toggleTextActive: {
+    fontWeight: '800',
     color: '#292524',
   },
   mainCard: {
@@ -186,19 +194,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatarInner: {
-    width: 88,
-    height: 88,
-    borderRadius: 28,
-    backgroundColor: '#CBD5E1',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitials: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#334155',
   },
   userName: {
     marginTop: 12,
