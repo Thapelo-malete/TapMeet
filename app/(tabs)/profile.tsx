@@ -1,18 +1,48 @@
-import { View, Text, ScrollView, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  Platform,
+  TouchableOpacity,
+  Linking,
+  RefreshControl,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Settings, Bell, Pencil } from 'lucide-react-native';
+import { Settings, Bell, Pencil, Linkedin, Twitter, Instagram, Link as LinkIcon } from 'lucide-react-native';
 import Avatar from '@/components/Avatar';
-import { currentUser } from '@/constants/mockData';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
+import { useDashboard } from '@/hooks/useDashboard';
+import { useMyProfile } from '@/hooks/useMyProfile';
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const router = useRouter();
+  const { user, supabaseUser, logout } = useAuth();
+  const { connectionsCount } = useDashboard();
+  const { profile, isLoading: isProfileLoading, isRefreshing, refresh } = useMyProfile(
+    supabaseUser?.id
+  );
+
+  const initials = useMemo(() => {
+    const name = (profile?.full_name ?? user?.fullName ?? 'TapMeet').trim();
+    const parts = name.split(/\s+/).slice(0, 2);
+    return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || 'TM';
+  }, [profile?.full_name, user?.fullName]);
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void refresh()}
+          tintColor="#A58A66"
+        />
+      }
     >
       <LinearGradient
         colors={['#CAA57A', '#E8D7C2', '#F4EFE9']}
@@ -32,19 +62,70 @@ export default function ProfileScreen() {
 
       <View style={[styles.profileCard, styles.cardShadow]}>
         <View style={styles.avatarRing}>
-          <Avatar initials="SM" size={78} />
+          <Avatar
+            initials={initials}
+            size={78}
+            uri={
+              profile?.avatar_url
+                ? `${profile.avatar_url}?v=${encodeURIComponent(profile.updated_at ?? '')}`
+                : null
+            }
+          />
         </View>
-        <Text style={styles.profileName}>{user?.fullName ?? currentUser.name}</Text>
-        <Text style={styles.profileHandle}>Product Lead @ TapMeet</Text>
+        <Text style={styles.profileName} numberOfLines={1}>
+          {isProfileLoading ? 'Loading…' : profile?.full_name ?? user?.fullName ?? 'TapMeet'}
+        </Text>
+        <Text style={styles.profileHandle} numberOfLines={1}>
+          {isProfileLoading ? ' ' : profile?.title ?? 'TapMeet member'}
+        </Text>
+
+        <View style={styles.socialIcons}>
+          {profile?.linkedin_url ? (
+            <TouchableOpacity
+              style={styles.socialBtn}
+              onPress={() => void Linking.openURL(profile.linkedin_url!)}
+              activeOpacity={0.85}
+            >
+              <Linkedin size={17} color="#A58A66" />
+            </TouchableOpacity>
+          ) : null}
+          {profile?.x_url ? (
+            <TouchableOpacity
+              style={styles.socialBtn}
+              onPress={() => void Linking.openURL(profile.x_url!)}
+              activeOpacity={0.85}
+            >
+              <Twitter size={17} color="#A58A66" />
+            </TouchableOpacity>
+          ) : null}
+          {profile?.instagram_url ? (
+            <TouchableOpacity
+              style={styles.socialBtn}
+              onPress={() => void Linking.openURL(profile.instagram_url!)}
+              activeOpacity={0.85}
+            >
+              <Instagram size={17} color="#A58A66" />
+            </TouchableOpacity>
+          ) : null}
+          {profile?.website_url ? (
+            <TouchableOpacity
+              style={styles.socialBtn}
+              onPress={() => void Linking.openURL(profile.website_url!)}
+              activeOpacity={0.85}
+            >
+              <LinkIcon size={17} color="#A58A66" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
         <View style={styles.statsRow}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{currentUser.connectionsCount}</Text>
+            <Text style={styles.statNumber}>{connectionsCount}</Text>
             <Text style={styles.statLabel}>Connections</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{currentUser.eventsCount}</Text>
+            <Text style={styles.statNumber}>0</Text>
             <Text style={styles.statLabel}>Events</Text>
           </View>
           <View style={styles.statDivider} />
@@ -56,8 +137,12 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Memory</Text>
-        <TouchableOpacity style={styles.editPill} activeOpacity={0.85}>
+        <Text style={styles.sectionTitle}>My profile</Text>
+        <TouchableOpacity
+          style={styles.editPill}
+          onPress={() => router.push('/edit-profile')}
+          activeOpacity={0.85}
+        >
           <Pencil size={12} color="#FAFAF9" />
           <Text style={styles.editText}>Edit</Text>
         </TouchableOpacity>
@@ -65,22 +150,33 @@ export default function ProfileScreen() {
 
       <View style={[styles.card, styles.cardShadow]}>
         <Text style={styles.aboutText}>
-          Building connections that matter. Based in San Francisco, CA.
+          {profile?.bio?.trim()
+            ? profile.bio
+            : isProfileLoading
+              ? 'Loading…'
+              : 'Add a short bio to help people get to know you.'}
         </Text>
       </View>
 
       <View style={[styles.card, styles.cardShadow]}>
         <Text style={styles.sectionTitle}>Interests</Text>
         <View style={styles.tagsRow}>
-          {['#product', '#startups', '#design', '#ai'].map((tag) => (
+          {(profile?.interests?.length ? profile.interests : []).map((tag) => (
             <View key={tag} style={styles.tag}>
               <Text style={styles.tagText}>{tag}</Text>
             </View>
           ))}
+          {!isProfileLoading && (!profile?.interests || profile.interests.length === 0) ? (
+            <Text style={styles.emptyHint}>Add interests to show them here.</Text>
+          ) : null}
         </View>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={logout} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={styles.logoutButton}
+        onPress={() => void logout()}
+        activeOpacity={0.85}
+      >
         <Text style={styles.logoutButtonText}>Log out</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -154,6 +250,22 @@ const styles = StyleSheet.create({
     color: '#78716C',
     marginTop: 2,
     fontWeight: '500',
+  },
+  socialIcons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  socialBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E7E5E4',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statsRow: {
     flexDirection: 'row',
@@ -235,6 +347,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#292524',
     fontWeight: '700',
+  },
+  emptyHint: {
+    color: '#78716C',
+    fontSize: 13,
+    fontWeight: '600',
+    paddingVertical: 6,
   },
   logoutButton: {
     marginHorizontal: 18,

@@ -4,43 +4,68 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
+  TextInput,
   StyleSheet,
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ChevronRight, Hash, ScanLine } from 'lucide-react-native';
+import { ChevronRight, Hash, ScanLine, Search } from 'lucide-react-native';
 import Avatar from '@/components/Avatar';
-import { currentUser, weeklyMet } from '@/constants/mockData';
-import { useConnections } from '@/hooks/useConnections';
-
-const FILTERS = ['Professional', 'Social', 'Creator'] as const;
-type Filter = (typeof FILTERS)[number];
-
-const filterCategoryMap: Record<Filter, string> = {
-  Professional: 'Design',
-  Social: 'Startup',
-  Creator: 'Fintech',
-};
+import { useAuth } from '@/context/AuthContext';
+import { useDashboard } from '@/hooks/useDashboard';
+import { useMyProfile } from '@/hooks/useMyProfile';
 
 export default function HomeScreen() {
   const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState<Filter>('Professional');
-  const { connections: recentConnections } = useConnections(5);
+  const { user, supabaseUser } = useAuth();
+  const [searchText, setSearchText] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>('All');
+  const { recentConnections, connectionsCount, isRefreshing, refresh } = useDashboard();
+  const { profile } = useMyProfile(supabaseUser?.id);
 
-  const connections = useMemo(
-    () =>
-      recentConnections.map((c, i) =>
-        i === 0 ? { ...c, category: filterCategoryMap[activeFilter] } : c
-      ),
-    [activeFilter]
-  );
+  const timeGreeting = useMemo(() => {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 12) return 'Good morning';
+    if (h >= 12 && h < 17) return 'Good afternoon';
+    if (h >= 17 && h < 22) return 'Good evening';
+    return 'Good night';
+  }, []);
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of recentConnections) {
+      if (c.category) set.add(c.category);
+    }
+    return ['All', ...Array.from(set).slice(0, 8)];
+  }, [recentConnections]);
+
+  const connections = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    return recentConnections.filter((c) => {
+      const matchesCategory = activeCategory === 'All' || c.category === activeCategory;
+      const matchesSearch =
+        !q ||
+        c.name.toLowerCase().includes(q) ||
+        c.role.toLowerCase().includes(q) ||
+        c.company.toLowerCase().includes(q);
+      return matchesCategory && matchesSearch;
+    });
+  }, [activeCategory, recentConnections, searchText]);
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={() => void refresh()}
+          tintColor="#A58A66"
+        />
+      }
     >
       <LinearGradient
         colors={['#C9A376', '#E7D4BD', '#F4F0EB']}
@@ -50,39 +75,61 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Good morning, {currentUser.name}</Text>
+            <Text style={styles.greeting}>
+              {timeGreeting}, {profile?.full_name ?? user?.fullName ?? 'there'}
+            </Text>
             <Text style={styles.subtitle}>Ready to grow your network?</Text>
           </View>
-          <Avatar initials="SA" size={52} />
+          <Avatar
+            initials={(profile?.full_name?.slice(0, 2).toUpperCase() ?? 'TM')}
+            size={52}
+            uri={
+              profile?.avatar_url
+                ? `${profile.avatar_url}?v=${encodeURIComponent(profile.updated_at ?? '')}`
+                : null
+            }
+          />
         </View>
 
-        <View style={styles.segmented}>
-          {FILTERS.map((f) => (
+        <View style={styles.searchWrap}>
+          <Search size={18} color="#78716C" />
+          <TextInput
+            value={searchText}
+            onChangeText={setSearchText}
+            placeholder="Search connections"
+            placeholderTextColor="#A8A29E"
+            style={styles.searchInput}
+            autoCapitalize="none"
+            returnKeyType="search"
+          />
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipsRow}
+        >
+          {categories.map((c) => (
             <TouchableOpacity
-              key={f}
-              style={[styles.segmentItem, activeFilter === f && styles.segmentActive]}
-              onPress={() => setActiveFilter(f)}
+              key={c}
+              style={[styles.chip, activeCategory === c && styles.chipActive]}
+              onPress={() => setActiveCategory(c)}
               activeOpacity={0.85}
             >
-              <Text
-                style={[
-                  styles.segmentText,
-                  activeFilter === f && styles.segmentTextActive,
-                ]}
-              >
-                {f}
+              <Text style={[styles.chipText, activeCategory === c && styles.chipTextActive]}>
+                {c}
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         <View style={styles.statsRow}>
           <View style={[styles.statCard, styles.cardShadow]}>
-            <Text style={styles.statNumber}>{currentUser.connectionsCount}</Text>
+            <Text style={styles.statNumber}>{connectionsCount}</Text>
             <Text style={styles.statLabel}>Connections</Text>
           </View>
           <View style={[styles.statCard, styles.cardShadow]}>
-            <Text style={styles.statNumber}>{currentUser.eventsCount}</Text>
+            <Text style={styles.statNumber}>0</Text>
             <Text style={styles.statLabel}>Events</Text>
           </View>
           <View style={[styles.statCard, styles.cardShadow]}>
@@ -106,10 +153,10 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.weeklyRow}
         >
-          {weeklyMet.map((p) => (
+          {recentConnections.slice(0, 5).map((p) => (
             <View key={p.id} style={styles.weeklyItem}>
               <Avatar initials={p.initials} size={60} />
-              <Text style={styles.weeklyName}>{p.name}</Text>
+              <Text style={styles.weeklyName}>{p.name.split(' ')[0]}</Text>
             </View>
           ))}
         </ScrollView>
@@ -123,7 +170,7 @@ export default function HomeScreen() {
           <TouchableOpacity
             key={item.id}
             style={[styles.connectionCard, styles.cardShadow]}
-            onPress={() => router.push('/person-profile')}
+            onPress={() => router.push({ pathname: '/person-profile', params: { id: item.id } })}
             activeOpacity={0.85}
           >
             <Avatar initials={item.initials} size={52} />
@@ -183,30 +230,49 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontWeight: '500',
   },
-  segmented: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.7)',
+  searchWrap: {
+    marginTop: 2,
     marginHorizontal: 20,
-    padding: 6,
-    borderRadius: 28,
-    gap: 6,
-  },
-  segmentItem: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 22,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.75)',
+    borderWidth: 1,
+    borderColor: 'rgba(231,229,228,0.8)',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  segmentActive: {
-    backgroundColor: '#C7A074',
-  },
-  segmentText: {
-    fontSize: 14,
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
     fontWeight: '600',
+    color: '#292524',
+  },
+  chipsRow: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    gap: 8,
+    paddingBottom: 2,
+  },
+  chip: {
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderWidth: 1,
+    borderColor: 'rgba(231,229,228,0.75)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  chipActive: {
+    backgroundColor: '#C7A074',
+    borderColor: '#C7A074',
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: '#78716C',
   },
-  segmentTextActive: {
+  chipTextActive: {
     color: '#292524',
   },
   statsRow: {

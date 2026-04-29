@@ -1,11 +1,12 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { Image, View, Text, StyleSheet } from 'react-native';
 
 interface AvatarProps {
   initials: string;
   size?: number;
+  uri?: string | null;
 }
 
-export default function Avatar({ initials, size = 40 }: AvatarProps) {
+export default function Avatar({ initials, size = 40, uri }: AvatarProps) {
   const fontSize = size * 0.35;
   return (
     <View
@@ -14,7 +15,15 @@ export default function Avatar({ initials, size = 40 }: AvatarProps) {
         { width: size, height: size, borderRadius: size / 2 },
       ]}
     >
-      <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
+      {uri ? (
+        <Image
+          source={{ uri }}
+          style={{ width: size, height: size, borderRadius: size / 2 }}
+          resizeMode="cover"
+        />
+      ) : (
+        <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
+      )}
     </View>
   );
 }

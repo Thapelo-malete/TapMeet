@@ -1,10 +1,6 @@
-import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
-
-type StoredUser = {
-  fullName: string;
-  email: string;
-  password: string;
-};
+import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import type { Session, User } from '@supabase/supabase-js';
 
 type SessionUser = {
   fullName: string;
@@ -24,22 +20,74 @@ type LoginInput = {
 };
 
 type AuthContextValue = {
+  ready: boolean;
   user: SessionUser | null;
-  register: (input: RegisterInput) => { ok: boolean; message?: string };
-  login: (input: LoginInput) => { ok: boolean; message?: string };
-  logout: () => void;
+  supabaseUser: User | null;
+  register: (input: RegisterInput) => Promise<{ ok: boolean; message?: string }>;
+  login: (input: LoginInput) => Promise<{ ok: boolean; message?: string }>;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<StoredUser[]>([]);
+  const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<SessionUser | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadInitialSession() {
+      const { data } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      setSession(data.session ?? null);
+      setSupabaseUser(data.session?.user ?? null);
+      setUser(
+        data.session?.user
+          ? {
+              email: data.session.user.email ?? '',
+              fullName:
+                (data.session.user.user_metadata?.fullName as string | undefined) ??
+                (data.session.user.user_metadata?.full_name as string | undefined) ??
+                (data.session.user.email?.split('@')[0] ?? 'User'),
+            }
+          : null
+      );
+      setReady(true);
+    }
+
+    loadInitialSession();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setSupabaseUser(nextSession?.user ?? null);
+      setUser(
+        nextSession?.user
+          ? {
+              email: nextSession.user.email ?? '',
+              fullName:
+                (nextSession.user.user_metadata?.fullName as string | undefined) ??
+                (nextSession.user.user_metadata?.full_name as string | undefined) ??
+                (nextSession.user.email?.split('@')[0] ?? 'User'),
+            }
+          : null
+      );
+    });
+
+    return () => {
+      isMounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
+      ready,
       user,
-      register: ({ fullName, email, password, confirmPassword }) => {
+      supabaseUser,
+      register: async ({ fullName, email, password, confirmPassword }) => {
         const normalizedEmail = email.trim().toLowerCase();
         const normalizedName = fullName.trim();
 
@@ -55,36 +103,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (password !== confirmPassword) {
           return { ok: false, message: 'Passwords do not match.' };
         }
-        if (users.some((u) => u.email === normalizedEmail)) {
-          return { ok: false, message: 'An account with this email already exists.' };
-        }
 
-        const createdUser: StoredUser = {
-          fullName: normalizedName,
+        const { data, error } = await supabase.auth.signUp({
           email: normalizedEmail,
           password,
-        };
+          options: {
+            data: { fullName: normalizedName },
+          },
+        });
 
-        setUsers((prev) => [...prev, createdUser]);
-        setUser({ fullName: createdUser.fullName, email: createdUser.email });
-        return { ok: true };
-      },
-      login: ({ email, password }) => {
-        const normalizedEmail = email.trim().toLowerCase();
-        const matched = users.find(
-          (u) => u.email === normalizedEmail && u.password === password
-        );
-
-        if (!matched) {
-          return { ok: false, message: 'Invalid email or password.' };
+        if (error) {
+          return { ok: false, message: error.message };
         }
 
-        setUser({ fullName: matched.fullName, email: matched.email });
+        // If email confirmation is enabled, there may be no session yet.
+        if (!data.session) {
+          return { ok: true, message: 'Check your email to confirm your account.' };
+        }
+
         return { ok: true };
       },
-      logout: () => setUser(null),
+      login: async ({ email, password }) => {
+        const normalizedEmail = email.trim().toLowerCase();
+        const { error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
+
+        if (error) {
+          return { ok: false, message: error.message };
+        }
+
+        return { ok: true };
+      },
+      logout: async () => {
+        await supabase.auth.signOut();
+      },
     }),
-    [user, users]
+    [ready, user, supabaseUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

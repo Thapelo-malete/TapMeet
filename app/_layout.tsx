@@ -12,6 +12,13 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen
+          name="edit-profile"
+          options={{
+            presentation: 'card',
+            animation: 'slide_from_right',
+          }}
+        />
+        <Stack.Screen
           name="person-profile"
           options={{
             presentation: 'card',

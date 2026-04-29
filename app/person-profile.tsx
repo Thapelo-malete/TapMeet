@@ -6,7 +6,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Ellipsis,
@@ -18,10 +18,67 @@ import {
   PenLine,
 } from 'lucide-react-native';
 import Avatar from '@/components/Avatar';
-import { mockProfile } from '@/constants/mockData';
+import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function PersonProfileScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ id?: string }>();
+  const connectionId = params.id;
+
+  const [loading, setLoading] = useState(true);
+  const [connection, setConnection] = useState<{
+    id: string;
+    name: string;
+    role: string;
+    company: string;
+    category: string;
+    time_ago: string;
+    initials: string;
+    created_at: string;
+  } | null>(null);
+
+  const initials = useMemo(() => {
+    const name = connection?.name?.trim() || 'TapMeet';
+    const parts = name.split(/\s+/).slice(0, 2);
+    return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || 'TM';
+  }, [connection?.name]);
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      if (!connectionId) {
+        setLoading(false);
+        return;
+      }
+      const { data } = await supabase
+        .from('connections')
+        .select('id,name,role,company,category,time_ago,initials,created_at')
+        .eq('id', connectionId)
+        .maybeSingle();
+      if (!mounted) return;
+      setConnection(
+        data
+          ? {
+              id: String(data.id),
+              name: data.name ?? 'Unknown Person',
+              role: data.role ?? 'Professional',
+              company: data.company ?? 'TapMeet',
+              category: data.category ?? 'General',
+              time_ago: data.time_ago ?? 'Just now',
+              initials: data.initials ?? initials,
+              created_at: data.created_at ?? new Date().toISOString(),
+            }
+          : null
+      );
+      setLoading(false);
+    }
+    load();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectionId]);
 
   return (
     <ScrollView
@@ -44,10 +101,12 @@ export default function PersonProfileScreen() {
 
       <View style={styles.profileHeader}>
         <View style={styles.avatarRing}>
-          <Avatar initials="SJ" size={86} />
+          <Avatar initials={connection?.initials ?? initials} size={86} />
         </View>
-        <Text style={styles.profileName}>{mockProfile.name}</Text>
-        <Text style={styles.profileTitle}>{mockProfile.title}</Text>
+        <Text style={styles.profileName}>{connection?.name ?? 'Connection'}</Text>
+        <Text style={styles.profileTitle}>
+          {connection ? `${connection.role} @ ${connection.company}` : ' '}
+        </Text>
       </View>
 
       <View style={styles.socialRow}>
@@ -75,43 +134,38 @@ export default function PersonProfileScreen() {
           <MapPin size={16} color="#78716C" />
           <Text style={styles.memoryLabel}>Met at</Text>
         </View>
-        <Text style={styles.memoryValue}>{mockProfile.metAt}</Text>
+        <Text style={styles.memoryValue}>
+          {connection ? connection.category : loading ? 'Loading…' : '—'}
+        </Text>
 
         <View style={[styles.sectionHeader, styles.dateHeader]}>
           <CalendarDays size={16} color="#78716C" />
           <Text style={styles.memoryLabel}>Date</Text>
         </View>
-        <Text style={styles.memoryValue}>{mockProfile.date}</Text>
+        <Text style={styles.memoryValue}>
+          {connection ? new Date(connection.created_at).toLocaleDateString() : '—'}
+        </Text>
 
         <View style={styles.noteContainer}>
-          <Text style={styles.noteText}>{mockProfile.notes}</Text>
+          <Text style={styles.noteText}>
+            {connection
+              ? `Connected ${connection.time_ago}.`
+              : loading
+                ? 'Loading…'
+                : 'No details available.'}
+          </Text>
         </View>
 
         <View style={styles.tagsRow}>
-          {mockProfile.hashtags.map((tag) => (
-            <View key={tag} style={styles.hashTag}>
-              <Text style={styles.hashTagText}>#{tag}</Text>
+          {connection ? (
+            <View style={styles.hashTag}>
+              <Text style={styles.hashTagText}>{connection.category}</Text>
             </View>
-          ))}
+          ) : null}
         </View>
       </View>
 
-      <View style={styles.peopleSection}>
-        <Text style={styles.sectionTitle}>People like them</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.peopleRow}
-        >
-          {mockProfile.peopleLike.map((person) => (
-            <View key={person.name} style={[styles.personCard, styles.cardShadow]}>
-              <Avatar initials={person.name.slice(0, 2).toUpperCase()} size={56} />
-              <Text style={styles.personName}>{person.name}</Text>
-              <Text style={styles.personRole}>{person.role}</Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
+      {/* People like them section can be added once we have recommendation data */}
     </ScrollView>
   );
 }

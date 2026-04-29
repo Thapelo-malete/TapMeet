@@ -6,7 +6,7 @@ import { useConnections } from '@/hooks/useConnections';
 
 export default function RecentScreen() {
   const router = useRouter();
-  const { connections: recentConnections } = useConnections();
+  const { connections: recentConnections, isLoading } = useConnections();
 
   return (
     <ScrollView
@@ -20,11 +20,14 @@ export default function RecentScreen() {
       </View>
 
       <View style={styles.listWrap}>
+        {isLoading ? (
+          <Text style={styles.subtitle}>Loading…</Text>
+        ) : null}
         {recentConnections.map((item) => (
           <TouchableOpacity
             key={item.id}
             style={[styles.connectionCard, styles.cardShadow]}
-            onPress={() => router.push('/person-profile')}
+            onPress={() => router.push({ pathname: '/person-profile', params: { id: item.id } })}
             activeOpacity={0.85}
           >
             <Avatar initials={item.initials} size={52} />

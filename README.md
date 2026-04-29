@@ -20,5 +20,7 @@ import { supabase } from '@/lib/supabase';
 
 1. Open Supabase Dashboard -> SQL Editor.
 2. Run `supabase/init.sql`.
-3. In project root, copy `.env.example` to `.env` and paste your real anon key.
-4. Restart Expo (`npm run dev`).
+3. Run `supabase/user_profiles.sql` (for editable user profiles).
+4. Run `supabase/storage_avatars.sql` and create a Storage bucket named `avatars` (set it to public for easiest image display).
+5. In project root, copy `.env.example` to `.env` and paste your real anon key.
+6. Restart Expo (`npm run dev`).

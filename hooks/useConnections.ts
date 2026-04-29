@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { recentConnections as fallbackConnections } from '@/constants/mockData';
 
 export interface ConnectionItem {
   id: string;
@@ -41,8 +40,9 @@ function mapRow(row: ConnectionRow): ConnectionItem {
 }
 
 export function useConnections(limit = 20) {
-  const [connections, setConnections] = useState<ConnectionItem[]>(fallbackConnections);
+  const [connections, setConnections] = useState<ConnectionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -57,8 +57,8 @@ export function useConnections(limit = 20) {
       if (!isMounted) return;
 
       if (error || !data) {
-        // Keep fallback data so UI always renders.
-        setConnections(fallbackConnections);
+        setError('Failed to load connections.');
+        setConnections([]);
         setIsLoading(false);
         return;
       }
@@ -74,5 +74,5 @@ export function useConnections(limit = 20) {
     };
   }, [limit]);
 
-  return { connections, isLoading };
+  return { connections, isLoading, error };
 }

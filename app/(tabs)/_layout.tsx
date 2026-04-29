@@ -3,7 +3,9 @@ import { House, User, Camera, Map, Sparkles } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 
 export default function TabLayout() {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
+
+  if (!ready) return null;
 
   if (!user) {
     return <Redirect href="/login" />;

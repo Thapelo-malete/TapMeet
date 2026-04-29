@@ -1,5 +1,13 @@
 import { View, Text, StyleSheet } from 'react-native';
-import { categoryColors } from '@/constants/mockData';
+
+const categoryColors: Record<string, { bg: string; text: string }> = {
+  Design: { bg: '#EDE9FE', text: '#6D28D9' },
+  Startup: { bg: '#D1FAE5', text: '#065F46' },
+  Fintech: { bg: '#DBEAFE', text: '#1D4ED8' },
+  Events: { bg: '#FEF3C7', text: '#92400E' },
+  Content: { bg: '#FCE7F3', text: '#9D174D' },
+  Tech: { bg: '#E0F2FE', text: '#075985' },
+};
 
 interface CategoryTagProps {
   label: string;
